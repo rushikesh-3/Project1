@@ -1,83 +1,115 @@
 import React, { useEffect, useState } from 'react'
-import { dummyMyBookingsData } from '../../assets/assets'
 import Title from '../../components/owner/Title'
+import { useAppContext } from '../../context/AppContext'
+import { getImageUrl } from '../../utils/getImageUrl'
+import toast from 'react-hot-toast'
 
 const ManageBookings = () => {
 
-  const currency=import.meta.env.VITE_CURRENCY
-  
-  const [bookings,settBookings]=useState([])
+  const currency = import.meta.env.VITE_CURRENCY
+  const { axios } = useAppContext()
+  const [bookings, setBookings] = useState([])
 
-  const fetchOwnerBookings=async()=>{
-    settBookings(dummyMyBookingsData)
+  const fetchOwnerBookings = async () => {
+    try {
+      const { data } = await axios.get('/api/booking/owner')
+      if (data.success) {
+        setBookings(data.bookings)
+      } else {
+        toast.error(data.message)
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message)
+    }
   }
 
-  useEffect(()=>{
+  const changeStatus = async (bookingId, status) => {
+    try {
+      const { data } = await axios.post('/api/booking/change-status', { bookingId, status })
+      if (data.success) {
+        toast.success(data.message)
+        fetchOwnerBookings()
+      } else {
+        toast.error(data.message)
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message)
+    }
+  }
+
+  useEffect(() => {
     fetchOwnerBookings()
-  },[])
+  }, [])
+
   return (
     <div className='px-4 p-10 md:px-10 w-full'>
-      
 
       <Title title="Manage Bookings" subTitle="Track all 
       customer bookings, approve or cancel requests, and
       manage booking statuses"/>
 
-      <div className='max-w-3xl w-full rounded-md overflow-hidden border border-borderColor mt-6'>
+      {bookings.length === 0 ? (
+        <p className='text-gray-500 mt-6'>No bookings yet.</p>
+      ) : (
+        <div className='max-w-3xl w-full rounded-md overflow-hidden border border-borderColor mt-6'>
 
-        <table className='w-full border-collapse text-left text-sm text-gray-600'>
-          <thead className='text-gray-500'>
-            <tr>
-              <th className='p-3 font-medium'>Car</th>
-              <th className='p-3 font-medium max-md:hidden'>Date Range</th>
-              <th className='p-3 font-medium'>Total</th>
-              <th className='p-3 font-medium max-md:hidden'>Payment</th>
-              <th className='p-3 font-medium'>Actions</th>
-            </tr>
-
-          </thead>
-
-          <tbody>
-            {bookings.map((booking,index)=>(
-              <tr key={index} className='border-t border-borderColor tex-gray-500'>
-               
-               <td className='p-3 flex items-center gap-3'>
-                  <img src={booking.car.image} alt="" className='h-12 
-                  w-12 aspect-square rounded-md object-cover'/>
-                  <p className='font-medium max-md:hidden'>{booking.car.brand} {booking.car.model}</p>
-               </td>
-
-               <td className='p-3 max-md:width'>
-                  {booking.pickupDate.split('T')[0]} to {booking.returnDate.split('T')[0]}
-               </td>
-
-               <td className='p-3'>
-                {currency}{booking.price}
-               </td>
-
-               <td className='p-3 max-md:hidden'>
-                  <span className='bg-gray-100 px-3 py-1 rounded-full text-xs'>offline</span>
-               </td>
-
-               <td className='p-3'>
-                {booking.status==='pending' ?(
-                  <select value={booking.status} className='px-2 py-1.5 mt-1 text-gray-500 border border-borderColor rounded-md outline-none'>
-                    <option value="Pending">Pending</option>
-                    <option value="Cancelled">Cancelled</option>
-                    <option value="Confirmed">Confirmed</option>
-                  </select>
-                ) : (
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${booking.status==='confirmed'?
-                    'bg-green-100 text-green-500 ':'bg-red-100 text-red-500'
-                  }`}>{booking.status}</span>
-                )}
-               </td>
+          <table className='w-full border-collapse text-left text-sm text-gray-600'>
+            <thead className='text-gray-500'>
+              <tr>
+                <th className='p-3 font-medium'>Car</th>
+                <th className='p-3 font-medium max-md:hidden'>Date Range</th>
+                <th className='p-3 font-medium'>Total</th>
+                <th className='p-3 font-medium max-md:hidden'>Payment</th>
+                <th className='p-3 font-medium'>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
 
-      </div>
+            <tbody>
+              {bookings.map((booking) => (
+                <tr key={booking._id} className='border-t border-borderColor text-gray-500'>
+               
+                 <td className='p-3 flex items-center gap-3'>
+                    <img src={getImageUrl(booking.car?.image)} alt="" className='h-12 
+                    w-12 aspect-square rounded-md object-cover'/>
+                    <p className='font-medium max-md:hidden'>{booking.car?.brand} {booking.car?.model}</p>
+                 </td>
+
+                 <td className='p-3 max-md:hidden'>
+                    {new Date(booking.pickupDate).toISOString().split('T')[0]} to {new Date(booking.returnDate).toISOString().split('T')[0]}
+                 </td>
+
+                 <td className='p-3'>
+                  {currency}{booking.price}
+                 </td>
+
+                 <td className='p-3 max-md:hidden'>
+                    <span className='bg-gray-100 px-3 py-1 rounded-full text-xs'>offline</span>
+                 </td>
+
+                 <td className='p-3'>
+                  {booking.status === 'pending' ? (
+                    <select
+                      value={booking.status}
+                      onChange={(e) => changeStatus(booking._id, e.target.value)}
+                      className='px-2 py-1.5 mt-1 text-gray-500 border border-borderColor rounded-md outline-none'
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="cancelled">Cancelled</option>
+                      <option value="confirmed">Confirmed</option>
+                    </select>
+                  ) : (
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${booking.status === 'confirmed' ?
+                      'bg-green-100 text-green-500 ' : 'bg-red-100 text-red-500'
+                    }`}>{booking.status}</span>
+                  )}
+                 </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+        </div>
+      )}
 
     </div>
   )

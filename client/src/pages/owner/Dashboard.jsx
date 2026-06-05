@@ -1,23 +1,41 @@
 import React, { useEffect, useState } from 'react'
-import { assets, dummyDashboardData } from '../../assets/assets'
+import { assets } from '../../assets/assets'
 import Title from '../../components/owner/Title'
+import { useAppContext } from '../../context/AppContext'
+import toast from 'react-hot-toast'
+import Loader from '../../components/Loader'
 
 const Dashboard = () => {
 
   const currency = import.meta.env.VITE_CURRENCY
+  const { axios } = useAppContext()
 
   const [data, setData] = useState({
     totalCars: 0,
     totalBookings: 0,
     pendingBookings: 0,
     completedBookings: 0,
-    recentBooking: [],
+    recentBookings: [],
     monthlyRevenue: 0,
   })
+  const [loading, setLoading] = useState(true)
 
-  // ✅ Load dummy data
   useEffect(() => {
-    setData(dummyDashboardData)
+    const fetchDashboard = async () => {
+      try {
+        const { data: res } = await axios.get('/api/owner/dashboard')
+        if (res.success) {
+          setData(res.dashboardData)
+        } else {
+          toast.error(res.message)
+        }
+      } catch (error) {
+        toast.error(error.response?.data?.message || error.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchDashboard()
   }, [])
 
   const dashboardCards = [
@@ -27,6 +45,8 @@ const Dashboard = () => {
     { title: "Confirmed", value: data.completedBookings, icon: assets.listIconColored },
   ]
 
+  if (loading) return <Loader />
+
   return (
     <div className='px-5 pt-10 md:px-10 flex-1'>
       
@@ -35,7 +55,6 @@ const Dashboard = () => {
         subTitle="Monitor overall platform performance including total cars, booking, revenue, and recent activities"
       />
 
-      {/* Cards */}
       <div className='grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 my-8 max-w-3xl'>
         {dashboardCards.map((card, index) => (
           <div
@@ -54,43 +73,42 @@ const Dashboard = () => {
         ))}
       </div>
       <div className='flex flex-wrap items-start gap-6 mb-8 w-full'>
-      {/* Recent Booking */}
       <div className='p-4 md:p-6 border border-borderColor rounded-md max-w-lg w-full'>
         <h1 className='text-lg font-medium'>Recent Booking</h1>
         <p className='text-gray-500'>Latest customer booking</p>
 
-        {data.recentBookings?.map((booking, index) => (
-          <div key={index} className='mt-4 flex items-center justify-between'>
-            <div>
-              <p>{booking.car.brand} {booking.car.model}</p>
-              <p className='text-sm text-gray-500'>
-                {booking.createdAt.split('T')[0]}
-              </p>
-            </div>
+        {data.recentBookings?.length === 0 ? (
+          <p className='text-gray-500 mt-4'>No bookings yet.</p>
+        ) : (
+          data.recentBookings?.map((booking, index) => (
+            <div key={index} className='mt-4 flex items-center justify-between'>
+              <div>
+                <p>{booking.car?.brand} {booking.car?.model}</p>
+                <p className='text-sm text-gray-500'>
+                  {new Date(booking.createdAt).toISOString().split('T')[0]}
+                </p>
+              </div>
 
-            <div className='flex items-center gap-2 font-medium'>
-              <p className='text-sm text-gray-500'>
-                {currency}{booking.price}
-              </p>
-              <p className='px-3 py-0.5 border border-borderColor rounded-full text-sm'>
-                {booking.status}
-              </p>
+              <div className='flex items-center gap-2 font-medium'>
+                <p className='text-sm text-gray-500'>
+                  {currency}{booking.price}
+                </p>
+                <p className='px-3 py-0.5 border border-borderColor rounded-full text-sm'>
+                  {booking.status}
+                </p>
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
 
-        
       </div>
-
-      {/* Monthly revenue */}
 
       <div className='p-4 md:p-6 mb-6 border border-borderColor rounded-md w-full md:max-w-xs'>
         <h1 className='text-lg font-medium'>Monthly Revenue</h1>
-        <p className='text-gray-500'>Revenue for current month</p>
+        <p className='text-gray-500'>Revenue for confirmed bookings</p>
         <p className='text-3xl mt-6 font-semibold text-primary'>{currency}{data.monthlyRevenue}</p>
       </div>
       </div>
-      
 
     </div>
   )

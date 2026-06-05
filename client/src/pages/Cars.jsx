@@ -1,20 +1,27 @@
 import React, { useState } from 'react'
 import Title from "../components/Title";
-import { assets, dummyCarData } from '../assets/assets';
+import { assets } from '../assets/assets';
 import CarCard from "../components/CarCard";
-
+import { useAppContext } from '../context/AppContext';
 
 const Cars = () => {
 
+  const { cars } = useAppContext()
+  const [input, setInput] = useState('');
 
-
-  const [input,setInput]=useState('');
-
+  const filteredCars = cars.filter((car) => {
+    const search = input.toLowerCase()
+    return (
+      car.brand?.toLowerCase().includes(search) ||
+      car.model?.toLowerCase().includes(search) ||
+      car.category?.toLowerCase().includes(search) ||
+      car.location?.toLowerCase().includes(search)
+    )
+  })
 
   return (
     <div>
 
-      {/*Title and Search bar*/}
       <div className='flex flex-col items-center py-20 bg-light max-md:px-4'>
         <Title title="Available Cars" subTitle="Browse our selection of premium vehicles available for your next adventure" />
         
@@ -22,24 +29,27 @@ const Cars = () => {
 
           <img src={assets.search_icon} alt="" className='w-4.5 h-4.5 mr-2'/>
 
-          <input onClick={(e)=>setInput(e.target.value)} value={input} type="text" placeholder='Search ' className='w-full h-full outline-none text-grey-500'/>
+          <input onChange={(e) => setInput(e.target.value)} value={input} type="text" placeholder='Search by brand, model, category or location' className='w-full h-full outline-none text-grey-500'/>
 
           <img src={assets.filter_icon} alt="" className='w-4.5 h-4.5 ml-2'/>
         
         </div>
       </div>
 
-      {/*Car and Car Details*/}
       <div className='px-6 md:px-16 lg:px-24 xl:px-32 mt-10'>
-        <p className='text-gray-500 xl:px-20 max-w-7xl mx-auto'>Showing {dummyCarData.length} Cars</p>
+        <p className='text-gray-500 xl:px-20 max-w-7xl mx-auto'>Showing {filteredCars.length} Cars</p>
 
-        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 mt-4 xl:px-20 max-w-7xl mx-auto'>
-          {dummyCarData.map((Cars,index)=>(
-            <div key={index}>
-              <CarCard car={Cars}/>
-            </div>
-          ))}
-        </div>
+        {filteredCars.length === 0 ? (
+          <p className='text-gray-500 text-center mt-10'>No cars available right now.</p>
+        ) : (
+          <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 mt-4 xl:px-20 max-w-7xl mx-auto'>
+            {filteredCars.map((car) => (
+              <div key={car._id}>
+                <CarCard car={car}/>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
     </div>
