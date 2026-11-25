@@ -1,9 +1,9 @@
-import React from 'react'
+﻿import React from 'react'
 import Title from './Title'
 import { assets } from '../assets/assets'
 import CarCard from './CarCard'
 import { useNavigate } from 'react-router-dom'
-import { useAppContext } from '../context/AppContext'
+import { useAppContext } from '../context/AppContext.js'
 
 function FeaturedSection() {
     const navigate = useNavigate();
@@ -24,7 +24,7 @@ function FeaturedSection() {
         }
       </div>
       {cars.length === 0 && (
-        <p className='text-gray-500 mt-8'>No cars listed yet. Register as owner and add your first car.</p>
+        <p className='text-gray-500 mt-8'>No cars are currently available. Please check again later.</p>
       )}
       <button onClick={() => { navigate('/cars'); scrollTo(0, 0) }} className='flex items-center justify-center gap-2 px-6 py-2 border border-borderColor hover:bg-gray-50 rounded-md mt-18 cursor-pointer'>
         Explore all Cars <img src={assets.arrow_icon} alt='arrow'/>

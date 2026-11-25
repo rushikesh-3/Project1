@@ -12,11 +12,18 @@ const bookingSchema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ["pending", "confirmed", "cancelled"],
+    enum: ["pending", "confirmed", "completed", "cancelled"],
     default: "pending"
   },
 
-  price: { type: Number, required: true }
+  price: { type: Number, required: true },
+  licenseNumber: { type: String, default: "" },
+
+  paymentStatus: {
+    type: String,
+    enum: ["unpaid", "pay_at_pickup"],
+    default: "pay_at_pickup"
+  }
 
 }, { timestamps: true });
 

@@ -1,7 +1,7 @@
-import React, { useState } from 'react'
+﻿import React, { useState } from 'react'
 import Title from '../../components/owner/Title'
-import { assets } from '../../assets/assets'
-import { useAppContext } from '../../context/AppContext'
+import { assets, cityList, carFeatures } from '../../assets/assets'
+import { useAppContext } from '../../context/AppContext.js'
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
 
@@ -22,6 +22,7 @@ const AddCar = () => {
     seating_capacity: '',
     location: '',
     description: '',
+    features: [],
   })
 
   const onSubmitHandler = async (e) => {
@@ -42,12 +43,12 @@ const AddCar = () => {
         seating_capacity: Number(car.seating_capacity),
       }))
 
-      const { data } = await axios.post('/api/owner/add-car', formData)
+      const { data } = await axios.post('/api/admin/add-car', formData)
 
       if (data.success) {
         toast.success(data.message)
         fetchCars()
-        navigate('/owner/manage-cars')
+        navigate('/admin/manage-cars')
       } else {
         toast.error(data.message)
       }
@@ -156,11 +157,15 @@ const AddCar = () => {
               <select onChange={e => setCar({ ...car, location: e.target.value })}
                 value={car.location} className='px-3 py-2 mt-1 border border-borderColor rounded-md outline-none' required>
                 <option value="">Select Location</option>
-                <option value="LB Nagar">LB Nagar</option>
-                <option value="BN Reddy">BN Reddy</option>
-                <option value="KPHB">KPHB</option>
-                <option value="Maipur">Maipur</option>
+                {cityList.map(city => <option key={city} value={city}>{city}</option>)}
               </select>
+            </div>
+
+            <div className='flex flex-col w-full'>
+              <label>Features</label>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {carFeatures.map(feature => <label key={feature} className="flex items-center gap-2"><input type="checkbox" checked={car.features.includes(feature)} onChange={() => setCar({ ...car, features: car.features.includes(feature) ? car.features.filter(item => item !== feature) : [...car.features, feature] })} />{feature}</label>)}
+              </div>
             </div>
 
             <div className='flex flex-col w-full'>
@@ -173,7 +178,7 @@ const AddCar = () => {
             <button type="submit" className='flex items-center gap-2 px-4 py-2.5
             mt-4 bg-primary text-white rounded-md font-medium w-max cursor-pointer'>
               <img src={assets.tick_icon} alt="" />
-              List Your Car
+              Add Car to Fleet
             </button>
 
         </form>

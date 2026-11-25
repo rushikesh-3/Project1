@@ -34,34 +34,69 @@ const uploadImage = async (imageFile, folder) => {
 }
 
 
-//API to Change Role of User
-export const changeRoleToOwner = async (req,res)=>{
-    try{
-        const {_id}=req.user;
-        await User.findByIdAndUpdate(_id,{role: "owner"})
-        res.json({success:true,message: "Now you can list cars"})
-    } catch (error) {
-        console.log(error.message);
-        res.json({success:false,message: error.message})
-    }
-}
-
 //API to list Car
 
 export const addCar = async (req,res)=>{
     try{
         const {_id} =req.user;
-        let car=JSON.parse(req.body.carData);
+        let rawCarData;
+        try {
+            rawCarData = typeof req.body.carData === "string" ? JSON.parse(req.body.carData) : req.body.carData;
+        } catch {
+            return res.json({ success: false, message: "Invalid car data format" })
+        }
+
         const imageFile=req.file;
 
         if(!imageFile){
-            return res.json({success: false, message: "Car image is required"})
+            return res.status(400).json({success: false, message: "Car image is required"})
+        }
+
+        const {
+            brand,
+            model,
+            year,
+            pricePerDay,
+            category,
+            transmission,
+            fuel_type,
+            seating_capacity,
+            location,
+            description,
+            features
+        } = rawCarData || {};
+
+        if (!brand || !model || !year || !pricePerDay || !category || !fuel_type || !transmission || !seating_capacity || !location || !description) {
+            return res.status(400).json({ success: false, message: "Please fill in all required car fields" })
         }
 
         const image = await uploadImage(imageFile, '/cars')
-        await Car.create({...car, owner: _id, image})
 
-        res.json({success: true, message:"Car Added"})
+        // Whitelist only legitimate Car fields to prevent mass assignment
+        const safeCar = {
+            owner: _id,
+            brand: String(brand).trim(),
+            model: String(model).trim(),
+            year: Number(year),
+            pricePerDay: Number(pricePerDay),
+            category: String(category).trim(),
+            transmission: String(transmission).trim(),
+            fuel_type: String(fuel_type).trim(),
+            seating_capacity: Number(seating_capacity),
+            location: String(location).trim(),
+            description: String(description).trim(),
+            features: Array.isArray(features) ? features.map(f => String(f).trim()).filter(Boolean) : [],
+            image,
+            isAvailable: true
+        }
+
+        if (!Number.isInteger(safeCar.year) || safeCar.year < 1900 || safeCar.year > new Date().getFullYear() + 1 || !Number.isFinite(safeCar.pricePerDay) || safeCar.pricePerDay <= 0 || !Number.isInteger(safeCar.seating_capacity) || safeCar.seating_capacity < 1) {
+            return res.status(400).json({ success: false, message: "Enter a valid year, positive daily price, and seat count" })
+        }
+
+        await Car.create(safeCar)
+
+        res.status(201).json({success: true, message:"Car Added"})
 
     } catch(error){
         console.log(error.message);
@@ -88,10 +123,12 @@ export const toggleCarAvailability =async(req,res) =>{
         const {_id}=req.user;
         const {carId} = req.body;
         const car = await Car.findById(carId)
+        if(!car){
+            return res.status(404).json({ success:false, message: "Car not found"});
+        }
 
-        //checking is car belongs to the user
         if(car.owner.toString()!==_id.toString()){
-            return res.json({ success:false, message: "Unauthorized"});
+            return res.status(403).json({ success:false, message: "Unauthorized"});
         }
 
         car.isAvailable= !car.isAvailable;
@@ -111,16 +148,30 @@ export const deleteCar =async(req,res) =>{
         const {_id}=req.user;
         const {carId} = req.body;
         const car = await Car.findById(carId)
-
-        //checking is car belongs to the user
-        if(car.owner.toString()!==_id.toString()){
-            return res.json({ success:false, message: "Unauthorized"});
+        if(!car){
+            return res.status(404).json({ success:false, message: "Car not found"});
         }
 
-        car.owner= null;
-        car.isAvailable=false;
+        if(car.owner.toString()!==_id.toString()){
+            return res.status(403).json({ success:false, message: "Unauthorized"});
+        }
 
-        await car.save()
+        // Block deletion if the car has any active or upcoming bookings
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const activeBooking = await Booking.findOne({
+            car: carId,
+            status: { $in: ["pending", "confirmed"] },
+            returnDate: { $gte: today }
+        })
+        if (activeBooking) {
+            return res.status(409).json({
+                success: false,
+                message: "Cannot delete car with active or upcoming bookings. Cancel all bookings first."
+            })
+        }
+
+        await Car.findByIdAndDelete(carId)
 
         res.json({success: true, message: "Car Removed"})
     } catch (error){
@@ -134,18 +185,20 @@ export const getDashboardData = async(req,res)=>{
     try{
         const {_id,role}=req.user;
 
-        if(role!='owner'){
-            return res.json({success: false, message: "Unauthorized"});
+        if(role !== 'admin'){
+            return res.status(403).json({success: false, message: "Unauthorized"});
         }
 
         const cars=await Car.find({owner:_id})
         const bookings=await Booking.find({owner:_id}).populate('car').sort({createdAt: -1});
 
         const pendingBookings= await Booking.find({owner:_id,status:"pending"})
-        const compleBookings= await Booking.find({owner:_id,status:"confirmed"})
+        const compleBookings= await Booking.find({owner:_id,status:"completed"})
 
-        //Calculate monthly revenue from bookings where status is confirmed
-        const monthlyRevenue=bookings.slice().filter(booking=>booking.status==='confirmed').reduce((acc,booking)=> acc+booking.price,0)
+        // Count completed rental value within this calendar month.
+        const now = new Date()
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+        const monthlyRevenue=bookings.filter(booking=>booking.status==='completed' && new Date(booking.updatedAt) >= monthStart).reduce((acc,booking)=> acc+booking.price,0)
 
         const dashboardData = {
             totalCars: cars.length,
@@ -165,6 +218,78 @@ export const getDashboardData = async(req,res)=>{
     }
 }
 
+export const getOwnerCar = async (req, res) => {
+    try {
+        const car = await Car.findById(req.params.id)
+        if (!car) {
+            return res.status(404).json({ success: false, message: "Car not found" })
+        }
+        if (car.owner.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ success: false, message: "Unauthorized" })
+        }
+        res.json({ success: true, car })
+    } catch (error) {
+        res.json({ success: false, message: error.message })
+    }
+}
+
+export const updateCar = async (req, res) => {
+    try {
+        const car = await Car.findById(req.params.id)
+        if (!car) {
+            return res.status(404).json({ success: false, message: "Car not found" })
+        }
+        if (car.owner.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ success: false, message: "Unauthorized" })
+        }
+
+        let rawUpdates;
+        try {
+            rawUpdates = typeof req.body.carData === "string" ? JSON.parse(req.body.carData) : req.body.carData;
+        } catch {
+            return res.status(400).json({ success: false, message: "Invalid car data format" })
+        }
+
+        // Whitelist allowed fields to prevent mass assignment / unauthorized field overwriting
+        const allowedUpdates = {}
+        if (rawUpdates?.brand !== undefined) allowedUpdates.brand = String(rawUpdates.brand).trim()
+        if (rawUpdates?.model !== undefined) allowedUpdates.model = String(rawUpdates.model).trim()
+        if (rawUpdates?.year !== undefined) allowedUpdates.year = Number(rawUpdates.year)
+        if (rawUpdates?.pricePerDay !== undefined) allowedUpdates.pricePerDay = Number(rawUpdates.pricePerDay)
+        if (rawUpdates?.category !== undefined) allowedUpdates.category = String(rawUpdates.category).trim()
+        if (rawUpdates?.transmission !== undefined) allowedUpdates.transmission = String(rawUpdates.transmission).trim()
+        if (rawUpdates?.fuel_type !== undefined) allowedUpdates.fuel_type = String(rawUpdates.fuel_type).trim()
+        if (rawUpdates?.seating_capacity !== undefined) allowedUpdates.seating_capacity = Number(rawUpdates.seating_capacity)
+        if (rawUpdates?.location !== undefined) allowedUpdates.location = String(rawUpdates.location).trim()
+        if (rawUpdates?.description !== undefined) allowedUpdates.description = String(rawUpdates.description).trim()
+        if (rawUpdates?.features !== undefined) {
+            allowedUpdates.features = Array.isArray(rawUpdates.features) ? rawUpdates.features.map(f => String(f).trim()).filter(Boolean) : []
+        }
+        if (rawUpdates?.isAvailable !== undefined) {
+            allowedUpdates.isAvailable = Boolean(rawUpdates.isAvailable)
+        }
+
+        if (req.file) {
+            allowedUpdates.image = await uploadImage(req.file, "/cars")
+        }
+
+        if (allowedUpdates.year !== undefined && (!Number.isInteger(allowedUpdates.year) || allowedUpdates.year < 1900 || allowedUpdates.year > new Date().getFullYear() + 1)) {
+            return res.status(400).json({ success: false, message: "Enter a valid vehicle year" })
+        }
+        if (allowedUpdates.pricePerDay !== undefined && (!Number.isFinite(allowedUpdates.pricePerDay) || allowedUpdates.pricePerDay <= 0)) {
+            return res.status(400).json({ success: false, message: "Daily price must be greater than zero" })
+        }
+        if (allowedUpdates.seating_capacity !== undefined && (!Number.isInteger(allowedUpdates.seating_capacity) || allowedUpdates.seating_capacity < 1)) {
+            return res.status(400).json({ success: false, message: "Seat count must be a positive whole number" })
+        }
+
+        await Car.findByIdAndUpdate(req.params.id, { $set: allowedUpdates })
+        res.json({ success: true, message: "Car updated" })
+    } catch (error) {
+        res.json({ success: false, message: error.message })
+    }
+}
+
 //API to update user image
 
 export const updateUserImage = async (req,res)=>{
@@ -174,7 +299,7 @@ export const updateUserImage = async (req,res)=>{
         const imageFile=req.file;
 
         if(!imageFile){
-            return res.json({success: false, message: "Image is required"})
+            return res.status(400).json({success: false, message: "Image is required"})
         }
 
         const image = await uploadImage(imageFile, '/users')
@@ -183,6 +308,6 @@ export const updateUserImage = async (req,res)=>{
         res.json({success:true, message : "Image Updated"})
     } catch (error){
         console.log(error.message)
-        res.json({success: false,message: error.message})
+        res.status(500).json({success: false,message: error.message})
     }
 }

@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react'
+﻿import React, { useEffect, useState } from 'react'
 import { assets } from '../../assets/assets'
 import Title from '../../components/owner/Title'
-import { useAppContext } from '../../context/AppContext'
+import { useAppContext } from '../../context/AppContext.js'
 import toast from 'react-hot-toast'
 import Loader from '../../components/Loader'
 
@@ -23,7 +23,7 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const { data: res } = await axios.get('/api/owner/dashboard')
+        const { data: res } = await axios.get('/api/admin/dashboard')
         if (res.success) {
           setData(res.dashboardData)
         } else {
@@ -36,13 +36,13 @@ const Dashboard = () => {
       }
     }
     fetchDashboard()
-  }, [])
+  }, [axios])
 
   const dashboardCards = [
     { title: "Total Cars", value: data.totalCars, icon: assets.carIconColored },
     { title: "Total Bookings", value: data.totalBookings, icon: assets.listIconColored },
     { title: "Pending", value: data.pendingBookings, icon: assets.cautionIconColored },
-    { title: "Confirmed", value: data.completedBookings, icon: assets.listIconColored },
+    { title: "Completed", value: data.completedBookings, icon: assets.listIconColored },
   ]
 
   if (loading) return <Loader />
@@ -51,8 +51,8 @@ const Dashboard = () => {
     <div className='px-5 pt-10 md:px-10 flex-1'>
       
       <Title
-        title="Admin Dashboard"
-        subTitle="Monitor overall platform performance including total cars, booking, revenue, and recent activities"
+        title="Rental Admin Dashboard"
+        subTitle="Manage the rental fleet and review customer bookings."
       />
 
       <div className='grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 my-8 max-w-3xl'>
@@ -105,7 +105,7 @@ const Dashboard = () => {
 
       <div className='p-4 md:p-6 mb-6 border border-borderColor rounded-md w-full md:max-w-xs'>
         <h1 className='text-lg font-medium'>Monthly Revenue</h1>
-        <p className='text-gray-500'>Revenue for confirmed bookings</p>
+        <p className='text-gray-500'>Completed rentals this month</p>
         <p className='text-3xl mt-6 font-semibold text-primary'>{currency}{data.monthlyRevenue}</p>
       </div>
       </div>

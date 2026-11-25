@@ -1,32 +1,37 @@
-import React, { useEffect, useState } from 'react'
+﻿import React, { useCallback, useEffect, useState } from 'react'
 import { assets } from '../../assets/assets'
 import Title from '../../components/owner/Title'
-import { useAppContext } from '../../context/AppContext'
+import { useAppContext } from '../../context/AppContext.js'
 import { getImageUrl } from '../../utils/getImageUrl'
 import toast from 'react-hot-toast'
+import { useNavigate } from 'react-router-dom'
 
 const ManageCars = () => {
 
   const currency = import.meta.env.VITE_CURRENCY
   const { axios, fetchCars } = useAppContext()
+  const navigate = useNavigate()
   const [cars, setCars] = useState([])
 
-  const fetchOwnerCars = async () => {
-    try {
-      const { data } = await axios.get('/api/owner/cars')
-      if (data.success) {
-        setCars(data.cars)
-      } else {
-        toast.error(data.message)
+  const fetchOwnerCars = useCallback(async () => {
+    const run = async () => {
+      try {
+        const { data } = await axios.get('/api/admin/cars')
+          if (data.success) {
+            setCars(data.cars)
+          } else {
+            toast.error(data.message)
+          }
+      } catch (error) {
+        toast.error(error.response?.data?.message || error.message)
       }
-    } catch (error) {
-      toast.error(error.response?.data?.message || error.message)
     }
-  }
+    run()
+  }, [axios])
 
   const toggleAvailability = async (carId) => {
     try {
-      const { data } = await axios.post('/api/owner/toggle-car', { carId })
+      const { data } = await axios.post('/api/admin/toggle-car', { carId })
       if (data.success) {
         toast.success(data.message)
         fetchOwnerCars()
@@ -40,8 +45,9 @@ const ManageCars = () => {
   }
 
   const removeCar = async (carId) => {
+    if (!window.confirm('Remove this car listing?')) return
     try {
-      const { data } = await axios.post('/api/owner/delete-car', { carId })
+      const { data } = await axios.post('/api/admin/delete-car', { carId })
       if (data.success) {
         toast.success(data.message)
         fetchOwnerCars()
@@ -56,7 +62,7 @@ const ManageCars = () => {
 
   useEffect(() => {
     fetchOwnerCars()
-  }, [])
+  }, [fetchOwnerCars])
 
   return (
     <div className='px-4 p-10 md:px-10 w-full'>
@@ -112,6 +118,7 @@ const ManageCars = () => {
                   </td>
 
                   <td className='flex items-center gap-3 p-3'>
+                    <button type="button" onClick={() => navigate(`/admin/edit-car/${car._id}`)} className="text-primary cursor-pointer">Edit</button>
                     <img
                       onClick={() => toggleAvailability(car._id)}
                       src={car.isAvailable ? assets.eye_close_icon : assets.eye_icon}

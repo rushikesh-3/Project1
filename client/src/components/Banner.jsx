@@ -1,38 +1,11 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 import { assets } from '../assets/assets'
 
-function Banner() {
-  return (
-    <div className="flex flex-col md:flex-row md:items-start items-center justify-between px-8 min-md:pl-14 pt-10 bg-gradient-to-r from-[#0558FE] to-[#A9CFFF] max-w-6xl mx-3 md:mx-auto rounded-2xl overflow-hidden">
-
-  <div className="text-white">
-    <h2 className="text-3xl font-medium">
-      Do You Own a Luxury Car?
-    </h2>
-
-    <p className="mt-2">
-      Monetize your vehicle effortlessly by listing it on CarRental.
-    </p>
-
-    <p className="max-w-130">
-      We take care of insurance, driver verification and secure payments –
-      so you can earn passive income, stress-free.
-    </p>
-
-    <button className="px-6 py-2 bg-white hover:bg-slate-100 transition-all text-primary rounded-lg text-sm mt-4 cursor-pointer">
-      List your car
-    </button>
-  </div>
-
-  <img
-    src={assets.banner_car_image}
-    alt="car"
-    className="max-h-45 mt-10"
-  />
-
-</div>
-
-  )
+export default function Banner() {
+  const navigate = useNavigate()
+  return <section className="mx-3 flex max-w-6xl flex-col items-center justify-between overflow-hidden rounded-2xl bg-gradient-to-r from-[#0558FE] to-[#A9CFFF] px-8 pt-10 md:mx-auto md:flex-row md:pl-14">
+    <div className="text-white"><h2 className="text-3xl font-medium">Your next trip starts here</h2><p className="mt-2">Browse cars managed by our rental team and request a booking online.</p><p className="max-w-xl">Choose your dates, compare available vehicles, and keep track of your request from your account.</p><button onClick={()=>navigate('/cars')} className="mt-4 rounded-lg bg-white px-6 py-2 text-sm text-primary">Browse cars</button></div>
+    <img src={assets.banner_car_image} alt="Rental car" className="mt-10 max-h-48"/>
+  </section>
 }
-
-export default Banner
